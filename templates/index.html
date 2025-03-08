@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phishing URL Checker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+            margin: 0;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 400px;
+            text-align: center;
+        }
+
+        input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px;
+            width: 100%;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            position: relative;
+        }
+
+        button:disabled {
+            background: #999;
+            cursor: not-allowed;
+        }
+
+        .spinner {
+            display: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid white;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        @keyframes spin {
+            0% {
+                transform: translateY(-50%) rotate(0deg);
+            }
+
+            100% {
+                transform: translateY(-50%) rotate(360deg);
+            }
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+            font-weight: bold;
+        }
+
+        .safe {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .phishing {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Phishing URL Checker</h2>
+        <input type="text" id="url" placeholder="Enter a URL">
+        <button id="submitBtn" onclick="checkURL()">
+            Check URL <span class="spinner" id="spinner"></span>
+        </button>
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        function checkURL() {
+            const url = document.getElementById("url").value;
+            const resultDiv = document.getElementById("result");
+            const submitBtn = document.getElementById("submitBtn");
+            const spinner = document.getElementById("spinner");
+
+            if (!url) {
+                alert("Please enter a URL");
+                return;
+            }
+
+            resultDiv.style.display = "none";
+            submitBtn.disabled = true;
+            spinner.style.display = "inline-block";
+
+            fetch("/check-url", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: url })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    submitBtn.disabled = false;
+                    spinner.style.display = "none";
+
+                    if (data.error) {
+                        resultDiv.textContent = "Error: " + data.error;
+                        resultDiv.className = "result phishing";
+                    } else {
+                        resultDiv.textContent = `Result: ${data.isPhishing ? "Phishing" : "Legitimate"} (Confidence: ${data.confidence}/10)\nReason: ${data.reason}`;
+                        resultDiv.className = `result ${data.isPhishing ? "phishing" : "safe"}`;
+                    }
+                    resultDiv.style.display = "block";
+                })
+                .catch(error => {
+                    submitBtn.disabled = false;
+                    spinner.style.display = "none";
+                    resultDiv.textContent = "Error: Could not process request";
+                    resultDiv.className = "result phishing";
+                    resultDiv.style.display = "block";
+                });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,8 @@
+Flask
+tensorflow
+numpy
+pandas
+scikit-learn
+requests
+python-whois
+gunicorn
