@@ -1,79 +1,89 @@
 from flask import Flask, render_template, request, jsonify
-from tensorflow.keras.models import load_model
+import pandas as pd
+from tensorflow import keras
+from urllib.parse import urlparse
+import tldextract
 import requests
 import os
-import numpy as np
-import pandas as pd
-import re
-import whois
-import datetime
-from sklearn.preprocessing import MinMaxScaler
 
 app = Flask(__name__)
 
-# Load the trained Keras model
-model = load_model("phishing_model.h5")
+# Load the trained model
+model = keras.models.load_model("phishing_model.keras")
 
-# Define a scaler (ensure it matches the one used during training)
-scaler = MinMaxScaler(feature_range=(0, 1))
-
-
-# Function to extract features from the URL
-def extract_features(url):
-    features = []
-
-    # 1. having_IP_Address
-    features.append(1 if re.match(r"^(\d{1,3}\.){3}\d{1,3}$", url) else 0)
-
-    # 2. URL_Length (scaled)
-    url_length = len(url)
-    features.append(url_length / 100 if url_length < 100 else 1)  # Normalize
-
-    # 3. Shortening_Service
-    shortening_services = ("bit.ly", "goo.gl", "tinyurl.com", "ow.ly", "t.co")
-    features.append(1 if any(service in url for service in shortening_services) else 0)
-
-    # 4. having_At_Symbol
-    features.append(1 if "@" in url else 0)
-
-    # 5. double_slash_redirecting
-    features.append(1 if "//" in url[7:] else 0)
-
-    # 6. Prefix_Suffix (-1 if '-' in domain name, else 1)
-    domain = re.findall(r"://([^/]+)/?", url)
-    domain = domain[0] if domain else url
-    features.append(1 if "-" in domain else 0)
-
-    # 7. having_Sub_Domain (normalized)
-    subdomain_count = domain.count(".")
-    features.append(min(subdomain_count / 3, 1))  # Normalize
-
-    # 8. SSLfinal_State (default to 0 if unknown)
-    features.append(1 if "https" in url else 0)
-
-    # 9. Domain_registeration_length (Using WHOIS lookup, scaled)
-    try:
-        domain_info = whois.whois(domain)
-        expiration_date = domain_info.expiration_date
-        if isinstance(expiration_date, list):
-            expiration_date = expiration_date[0]
-        days_left = (
-            (expiration_date - datetime.datetime.today()).days if expiration_date else 0
-        )
-        features.append(min(days_left / 365, 1))  # Normalize
-    except:
-        features.append(0)
-
-    # 10-30: Placeholder features for consistency
-    features.extend([0] * 21)  # Ensure total feature count matches training data
-
-    return np.array(features).reshape(1, -1)
-
-
-DEEPSEEK_API_URL = "https://openrouter.ai/api/v1/chat/completions"  # Replace if needed
+# DeepSeek API Configuration
+DEEPSEEK_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")  # Ensure this is set in env variables
 
 
+# Feature extraction function
+def extract_features(url):
+    parsed_url = urlparse(url)
+    tld_info = tldextract.extract(url)
+
+    features = {
+        "URL": url,
+        "URLLength": len(url),
+        "Domain": parsed_url.netloc,
+        "DomainLength": len(parsed_url.netloc),
+        "IsDomainIP": parsed_url.netloc.replace(".", "").isdigit(),
+        "TLD": tld_info.suffix,
+        "URLSimilarityIndex": 0,  # Placeholder
+        "CharContinuationRate": 0,  # Placeholder
+        "TLDLegitimateProb": 0,  # Placeholder
+        "URLCharProb": 0,  # Placeholder
+        "TLDLength": len(tld_info.suffix),
+        "NoOfSubDomain": parsed_url.netloc.count("."),
+        "HasObfuscation": "@" in url or "//" in url[7:],
+        "NoOfObfuscatedChar": sum(c in "@[]{}|\\`^" for c in url),
+        "ObfuscationRatio": sum(c in "@[]{}|\\`^" for c in url) / len(url),
+        "NoOfLettersInURL": sum(c.isalpha() for c in url),
+        "LetterRatioInURL": sum(c.isalpha() for c in url) / len(url),
+        "NoOfDegitsInURL": sum(c.isdigit() for c in url),
+        "DegitRatioInURL": sum(c.isdigit() for c in url) / len(url),
+        "NoOfEqualsInURL": url.count("="),
+        "NoOfQMarkInURL": url.count("?"),
+        "NoOfAmpersandInURL": url.count("&"),
+        "NoOfOtherSpecialCharsInURL": sum(not c.isalnum() for c in url),
+        "SpacialCharRatioInURL": sum(not c.isalnum() for c in url) / len(url),
+        "IsHTTPS": url.startswith("https"),
+        "LineOfCode": 0,  # Placeholder
+        "LargestLineLength": 0,  # Placeholder
+        "HasTitle": 0,  # Placeholder
+        "Title": 0,  # Placeholder
+        "DomainTitleMatchScore": 0,  # Placeholder
+        "URLTitleMatchScore": 0,  # Placeholder
+        "HasFavicon": 0,  # Placeholder
+        "Robots": 0,  # Placeholder
+        "IsResponsive": 0,  # Placeholder
+        "NoOfURLRedirect": 0,  # Placeholder
+        "NoOfSelfRedirect": 0,  # Placeholder
+        "HasDescription": 0,  # Placeholder
+        "NoOfPopup": 0,  # Placeholder
+        "NoOfiFrame": 0,  # Placeholder
+        "HasExternalFormSubmit": 0,  # Placeholder
+        "HasSocialNet": 0,  # Placeholder
+        "HasSubmitButton": 0,  # Placeholder
+        "HasHiddenFields": 0,  # Placeholder
+        "HasPasswordField": 0,  # Placeholder
+        "Bank": 0,  # Placeholder
+        "Pay": 0,  # Placeholder
+        "Crypto": 0,  # Placeholder
+        "HasCopyrightInfo": 0,  # Placeholder
+        "NoOfImage": 0,  # Placeholder
+        "NoOfCSS": 0,  # Placeholder
+        "NoOfJS": 0,  # Placeholder
+        "NoOfSelfRef": 0,  # Placeholder
+        "NoOfEmptyRef": 0,  # Placeholder
+        "NoOfExternalRef": 0,  # Placeholder,
+    }
+
+    df = pd.DataFrame([features])
+    df = df.apply(pd.to_numeric, errors="coerce").fillna(0)
+    return df
+
+
+# DeepSeek API Query
 def query_deepseek(url):
     prompt = (
         "You are an AI-powered phishing detection tool trained to identify sophisticated phishing attempts. "
@@ -104,11 +114,10 @@ def query_deepseek(url):
     if response.status_code != 200:
         raise Exception(f"DeepSeek API call failed: {response.text}")
 
-    message = response.json()["choices"][0]["message"]["content"].strip()
-
-    return message
+    return response.json()["choices"][0]["message"]["content"].strip()
 
 
+# Parse DeepSeek response
 def parse_deepseek_response(response_text):
     try:
         status, confidence, reason = response_text.split("|")
@@ -120,11 +129,10 @@ def parse_deepseek_response(response_text):
 
         return {"confidence": confidence, "isPhishing": is_phishing, "reason": reason}
     except Exception:
-        # Fallback in case response is malformed
         return {
             "confidence": 5,
             "isPhishing": True,
-            "reason": "Unable to parse response. Try again.",
+            "reason": "DeepSeek response parsing failed.",
         }
 
 
@@ -133,20 +141,45 @@ def home():
     return render_template("index.html")  # Serves index.html
 
 
-@app.route("/check-url", methods=["POST"])
-def check_url():
+@app.route("/predict", methods=["POST"])
+def predict():
     data = request.json
     url = data.get("url")
 
     if not url:
-        return jsonify({"error": "URL is required"}), 400
+        return jsonify({"error": "Missing URL"}), 400
 
+    # Model Prediction
+    features_df = extract_features(url)
+
+    if features_df.shape[1] != model.input_shape[1]:
+        return (
+            jsonify(
+                {
+                    "error": f"Model expects {model.input_shape[1]} features, got {features_df.shape[1]}"
+                }
+            ),
+            400,
+        )
+
+    model_prediction = model.predict(features_df)[0][0]
+    model_confidence = round(model_prediction * 10, 2)
+    model_is_phishing = model_prediction >= 0.5
+
+    # DeepSeek Verification
     try:
         deepseek_response = query_deepseek(url)
-        result = parse_deepseek_response(deepseek_response)
-        return jsonify(result)
+        deepseek_result = parse_deepseek_response(deepseek_response)
+        return jsonify(deepseek_result)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        # Fallback to Model if DeepSeek fails
+        return jsonify(
+            {
+                "confidence": model_confidence,
+                "isPhishing": model_is_phishing,
+                "reason": "DeepSeek API unavailable, using model prediction.",
+            }
+        )
 
 
 if __name__ == "__main__":
