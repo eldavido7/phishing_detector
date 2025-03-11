@@ -2,7 +2,6 @@ Flask
 tensorflow
 numpy
 pandas
-tensorflow
 requests
 python-whois
 gunicorn
