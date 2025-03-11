@@ -6,3 +6,4 @@ scikit-learn
 requests
 python-whois
 gunicorn
+tldextract
