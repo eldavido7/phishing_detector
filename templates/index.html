@@ -123,7 +123,7 @@
             submitBtn.disabled = true;
             spinner.style.display = "inline-block";
 
-            fetch("/check-url", {
+            fetch("/predict", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ url: url })

@@ -5,8 +5,10 @@ from urllib.parse import urlparse
 import tldextract
 import requests
 import os
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 # Load the trained model
 model = keras.models.load_model("phishing_model.keras")
