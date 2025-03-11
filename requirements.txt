@@ -2,8 +2,9 @@ Flask
 tensorflow
 numpy
 pandas
-scikit-learn
+tensorflow
 requests
 python-whois
 gunicorn
 tldextract
+flask_cors
